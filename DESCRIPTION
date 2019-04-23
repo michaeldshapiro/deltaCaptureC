@@ -1,0 +1,31 @@
+Package: deltaCaptureC
+Title: This Package Discovers Meso-scale Chromatin Remodeling from 3C Data
+Version: 0.99.0
+Authors@R: 
+    person(given = "Michael",
+           family = "Shapiro",
+           role = c("aut", "cre"),
+           email = "sifka@earthlink.net",
+           comment = c(ORCID = "0000-0002-2769-9320"))
+Description: This package discovers meso-scale chromatin remodelling from 3C data.  3C data is local in nature.  It givens interaction counts between restriction enzyme digestion fragments and a preferred 'viewpoint' region.  By binning this data and using permutation testing, this package can test whether there are statistically significant changes in the interaction counts between the data from two cell types or two treatments.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends: R (>= 3.5.0)
+Imports:
+	IRanges,
+	GenomicRanges,
+	SummarizedExperiment,
+	ggplot2,
+	DESeq2
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 6.1.1
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+biocViews:
+	BiologicalQuestion,
+	StatisticalMethod
+	
+	

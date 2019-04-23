@@ -1,0 +1,187 @@
+---
+title: "Delta Capure-C"
+author: "Michael Shapiro"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Delta Capture-C}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+The purpose of this package is to detect meso-scale changes in
+chromatin conformation from 3C data. Typical 3C data might look like
+the following:
+
+
+|chr  |     start|       end| EScells_1|
+|:----|---------:|---------:|---------:|
+|chr2 |  13505797|  13506141|         2|
+|chr2 |  13506144|  13506556|         2|
+|chr2 |  13654334|  13655871|        14|
+| ... |   ...    |   ...    |    ...|
+|chr2 | 105656443| 105656693|       241|
+|chr2 | 105656696| 105659412|       263|
+|chr2 | 105659415| 105660479|       126|
+|chr2 | 105662321| 105663389|       275|
+|chr2 | 105663392| 105663974|       615|
+| ... |   ...    |   ...    |    ...|
+|chr2 | 173656857| 173657083|         2|
+|chr2 | 173694707| 173695349|         2|
+|chr2 | 173698231| 173698911|         4|
+
+
+
+The segments shown are restriction enzyme digestion fragments.  The
+counts show the numbers of experimentally captured interactions
+captured interactions between each of these fragments and the Paupar
+viewpoint.  This viewpoint lies in the region 105661048 -105661864 and
+we see higher numbers of captures for digestion fragments near the
+viewpoint.  Packages like r3Cseq attempt to determine p-values for the
+numbers of captures for each fragment.  In order to do this, it
+estimates a 'background' level of interaction as a function of
+distance from the viewpoint.  Comparing the count for each fragment to
+this background level allows it to estimate significance for each
+fragment.
+
+This method makes only limited use of positional information.  While
+it considers distance from the viewpoint in estimating background
+levels it ignores the proximity of individual fragments. But suppose
+we have ten consecutive fragments, each with counts only slightly
+above background.  None may rise to statistical significance on its
+own, but their co-location may make the group highly significant.  We
+will exploit this observation to look for statistically significant
+changes in counts between treatments or cell types.
+
+Consider 3C data for the same viewpoint for two replicates each for two
+different cell types.
+
+
+ |chr  |     start|       end| EScells_1| EScells_2| Neu_1| Neu_2|
+-|:----|---------:|---------:|---------:|---------:|-----:|-----:|
+ |chr2 |   6226506|   6226673|         0|         2|     0|     0|
+ |chr2 |   6235906|   6237082|         0|         0|     0|     1|
+ |chr2 |   6270043|   6270850|         1|         0|     0|     0|
+ | ... |   ...    |   ...    |    ...|   ...|   ...|   ...|
+ |chr2 | 105656443| 105656693|       241|       120|   184|    82|
+ |chr2 | 105656696| 105659412|       263|       215|   365|   225|
+ |chr2 | 105659415| 105660479|       126|       182|   220|   160|
+ |chr2 | 105662321| 105663389|       275|        90|   171|   133|
+ |chr2 | 105663392| 105663974|       615|       166|   327|   301|
+  | ... |   ...    |   ...    |    ...|   ...|   ...|   ...|
+ |chr2 | 179455636| 179455885|         0|         0|     0|     1|
+ |chr2 | 179473020| 179473517|         0|         0|     0|     3|
+ |chr2 | 179473520| 179473584|         0|         0|     0|     3|
+
+We wish to discover regions where there is a statisitcally significant
+change in the interaction levels between the two cell types.
+
+## Difference in mean normalized counts:
+
+The first task is to normalize the values for each of the cell types.
+This will allow us to find the mean count for each of the digestion
+fragments in each of the cell types and consequently find the
+difference in the mean normalized counts for the two cell types.
+Normalizing depends on estimating a _size factor_ for each replicate.
+Here we are relying on DESeq2::estimateSizeFactorsForMatrix().  For
+further details see the DESeq2 vignette or Love, M.I., Huber, W.,
+Anders, S. Moderated estimation of fold change and dispersion for
+RNA-seq data with DESeq2 Genome Biology 15(12):550 (2014)
+
+
+We have included a miniature version of the summarized experiment
+miniSE in order to demonstrate the process of extracting the delta
+mean normalized value miniDeltaSE.  
+
+```
+miniDeltaSE = getDeltaSE(miniSE)
+```
+
+The actual deltaSE comes from a SummarizedExperiment representing the
+complete data set for these four replicates and is subsequently
+trimmed to a region on chromosome2 surrounding our region of
+interest. After binning to a bin size of 1kb it looks like this:
+
+```{r fig.width=7, fig.height=4, echo=FALSE}
+      load('../data/binnedDeltaPlot.rda')
+      print(binnedDeltaPlot)
+```
+
+Our interface carries out the binning inside the call to the function
+getSignificantRegions().  The delta data (here deltaSE) is then mined
+for significant regions.
+
+## The Algorithm
+
+The algorithm proceeds as follows:
+
+1. The data is binned to smallBinSize (here 1kb) and trimmed to the
+_region of interest_.  The region of interest here is 500kb up and
+downstream of the mid-point of the viewpoint.
+1. We now rebin this data to bigBinSize (here 10kb).  This value
+should be an integer multiple of smallBinSize.
+1. The interaction count data are highest near the viewpoint.  We
+therefore distinguish a _viewpoint region_.
+    * In the viewpoint region, we compute the _lopsidedness_ of the data,
+         i.e., the absolute value of the difference between the sum of the bins
+         to the left of the viewpoint and the sum of the bins to the right of
+         the viewpoint.
+    * Outside the viewpoint region we define _runs_ to be maximal
+      consecutive sequences of bins where the delta value does not change
+       sign.  We compute the totals of the bins in each run.  We call these
+       _run totals_.
+1. We now perform random permutations of the small-bin delta data.
+    * Within the viewpoint region, these permutations respect the
+      distance from the viewpoint.  Thus, for each distance k from the
+      viewpoint, the two bins at distance k either are or are not swapped.
+    * We perform arbitrary permutations on the non-viewpoint bins.
+1. For each permutation, we rebin the resulting scrambled data to the
+large bin size and then compute the lopsidedness and run totals for
+that permutation.
+1. For each permutation we record the lopsidedness and maximum and
+minimum of the run totals.  Across all permutations this produces
+    * a distribution of lopsidedness values
+    * a distribution of maximum run totals
+    * a distribution of minimum run totals
+1. Significance in the original (unpermuted) data is then assessed by
+comparing the lopsidedness and run totals in the original data to
+these distributions.  
+
+## Invoking the algorithm and plotting the results
+
+```
+significantRegions = getSignificantRegions(deltaSE,
+                                           regionOfInterest,
+                                           viewpointRegion,
+                                           smallBinSize,
+                                           bigBinSize,
+                                           numPermutations,
+                                           pValue,
+                                           setSeed)
+```
+which are then ploted using
+```
+significantRegionsPlot = plotSignificantRegions(significantRegions,
+                                                significanceType,
+                                                plotTitle)
+```
+This gives the following result:
+
+```{r fig.width=7, fig.height=4, echo=FALSE}
+      load('../data/significantRegionsPlot.rda')
+      significantRegionsPlot = significantRegionsPlot +
+      ggplot2::theme(axis.text=ggplot2::element_text(size=8))
+       print(significantRegionsPlot)
+```
+
+
+
