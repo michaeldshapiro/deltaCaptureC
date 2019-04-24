@@ -79,7 +79,7 @@ getNormalizedCountsSE = function(se)
         se = getSizeFactorsSE(se)
     
     SummarizedExperiment::assays(se)[['normalizedCounts']] = SummarizedExperiment::assays(se)[['counts']]
-    for(i in 1:ncol(SummarizedExperiment::assays(se)[['normalizedCounts']]))
+    for(i in seq_len(ncol(SummarizedExperiment::assays(se)[['normalizedCounts']])))
         SummarizedExperiment::assays(se)[['normalizedCounts']][,i] =
             SummarizedExperiment::assays(se)[['normalizedCounts']][,i] / SummarizedExperiment::colData(se)$sizeFactors[i]
     
@@ -212,7 +212,7 @@ getOverlapWeights = function(bins,gr,checkDisjoint=FALSE)
     meetsDF$fromWidth = GenomicRanges::width(bins[IRanges::from(meets)])
     meetsDF$toWidth = GenomicRanges::width(gr[IRanges::to(meets)])
 
-    for(i in 1:L)
+    for(i in seq_len(L))
         meetsDF$overlap[i] = IRanges::width(GenomicRanges::intersect(bins[meetsDF$from[i]],gr[meetsDF$to[i]]))
 
     
@@ -255,7 +255,7 @@ binSummarizedExperiment = function(bins,se,checkDisjoint=FALSE)
     for(n in names(SummarizedExperiment::assays(se)))
     {
         m = matrix(0,nrow=rows,ncol=cols)
-        for(i in 1:nrow(overlapsDF))
+        for(i in seq_len(nrow(overlapsDF)))
         {
             whichRow = overlapsDF$from[i]
             m[whichRow,] = m[whichRow,] +
@@ -298,7 +298,7 @@ rebinToMultiple = function(se,multiple,deleteShort=FALSE)
     ## ######################################
     ## Bins should be consecutive:
     n = length(se)
-    theJumps = SummarizedExperiment::start(se)[2:n] - SummarizedExperiment::end(se)[1:(n-1)]
+    theJumps = SummarizedExperiment::start(se)[2:n] - SummarizedExperiment::end(se)[seq_len(n-1)]
     theJumps = unique(theJumps)
     stopifnot(length(theJumps) == 1 &
               theJumps == 1)
@@ -306,7 +306,7 @@ rebinToMultiple = function(se,multiple,deleteShort=FALSE)
     if(deleteShort)
     {
         n = multiple * floor(length(se) / multiple)
-        se = se[1:n]
+        se = se[seq_len(n)]
     }
     
     startRangeIdx = seq(1,length(se),by=multiple)
@@ -324,7 +324,7 @@ rebinToMultiple = function(se,multiple,deleteShort=FALSE)
     for(n in names(SummarizedExperiment::assays(se)))
     {
         m = matrix(0,nrow=rows,ncol=cols)
-        for(i in 1:N)
+        for(i in seq_len(N))
             m[i,] = sum(SummarizedExperiment::assays(se)[[n]][(startRangeIdx[i]:endRangeIdx[i]),])
         
         binnedAssays[[n]] = m
@@ -356,13 +356,13 @@ generatePermutation = function(gr,innerRegion)
     meets = IRanges::findOverlaps(gr,innerRegion)
     meetsIdx = meets@from
     
-    bigIdx = 1:length(gr)
+    bigIdx = seq_len(length(gr))
     m = min(bigIdx[meetsIdx])
     n = max(bigIdx[meetsIdx])
     permutation = bigIdx
     ## ######################################
     ## Permute the inner region:
-    for(i in 1:ceiling((n-m)/2))
+    for(i in seq_len(ceiling((n-m)/2)))
     {
         if(stats::runif(1) < .5)
         {
@@ -374,7 +374,7 @@ generatePermutation = function(gr,innerRegion)
     }
     ## ######################################
     ## Permute the remainder:
-    a = 1:(m-1)
+    a = seq_len(m-1)
     b = (n+1):length(permutation)
     outer = c(a,b)
     outer = sample(outer,length(outer),replace=FALSE)
@@ -527,7 +527,7 @@ getLopsidedness = function(se,viewpointRegion,colName='delta')
     use = min(b,a)
 
     below = below[(b-use+1):b]
-    above = above[1:use]
+    above = above[seq_len(use)]
     
     lopsidedness = abs(sum(GenomicRanges::mcols(below)[,colName]) -
                        sum(GenomicRanges::mcols(above)[,colName]))
@@ -582,7 +582,7 @@ getRunStatisticsDist = function(runTotalsList)
 {
     m = matrix(0,ncol=3,nrow=length(runTotalsList))
     colnames(m) = c('min','max','abs')
-    for(i in 1:length(runTotalsList))
+    for(i in seq_len(length(runTotalsList)))
         m[i,] = getRunStatistics(runTotalsList[[i]])
     
     return(m)
@@ -669,8 +669,6 @@ getPValueCutoff = function(runStats,p=.05)
 #' @param numPermutations = 1000 the number of permutations to be used for
 #'     permutation testing
 #' @param pValue the desired significance level
-#' @param setSeed if this is a positive number it is used in a call to
-#'     set.seed()
 #' @return a GRanges object giving the bigBin binning of region of
 #'     interest whose mcols gives the values of delta and logicals
 #'     telling whether the bin is in the viewpoint regsion and whether
@@ -682,8 +680,7 @@ getSignificantRegions = function(deltaSE,
                                  smallBinSize,
                                  bigBinSize,
                                  numPermutations=1000,
-                                 pValue=0.05,
-                                 setSeed=-1)
+                                 pValue=0.05)
 {
     ## ##########################################################################
     ## Trim to region of interest:
@@ -717,16 +714,11 @@ getSignificantRegions = function(deltaSE,
                  GenomicRanges::end(viewpointRegion)) / 2)
     realLopsidedness = getLopsidedness(bigBinDeltaSE,viewpointRegion,mid)
 
-    ## ##########################################################################
-    ## Make scrambled experiments and get scrambled runs:
-    if(setSeed > 0)
-        set.seed(setSeed)
-
     scrambledDeltas = list()
     scrambledRuns = list()
     rowRanges=SummarizedExperiment::rowRanges(binnedDeltaSE)
     colData=SummarizedExperiment::colData(binnedDeltaSE)
-    for(j in 1:numPermutations)
+    for(j in seq_len(numPermutations))
     {
         permutation = generatePermutation(binnedDeltaSE,viewpointRegion)
         m = matrix(SummarizedExperiment::assay(binnedDeltaSE)[permutation,],ncol=1)
@@ -771,7 +763,7 @@ getSignificantRegions = function(deltaSE,
 
     ## ##########################################################################
     ## What about runs?
-    for(i in 1:length(realRunTotals))
+    for(i in seq_len(length(realRunTotals)))
     {
         if(realRunTotals$runTotals[i] < cutoffs['min'])
         {

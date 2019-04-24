@@ -5,8 +5,7 @@
 \title{Get ths significant regions from delta data}
 \usage{
 getSignificantRegions(deltaSE, regionOfInterest, viewpointRegion,
-  smallBinSize, bigBinSize, numPermutations = 1000, pValue = 0.05,
-  setSeed = -1)
+  smallBinSize, bigBinSize, numPermutations = 1000, pValue = 0.05)
 }
 \arguments{
 \item{deltaSE}{a ranged summarized experiment with a one-column
@@ -26,9 +25,6 @@ permutation}
 permutation testing}
 
 \item{pValue}{the desired significance level}
-
-\item{setSeed}{if this is a positive number it is used in a call to
-set.seed()}
 }
 \value{
 a GRanges object giving the bigBin binning of region of
