@@ -238,7 +238,7 @@ getOverlapWeights = function(bins,gr,checkDisjoint=FALSE)
 #' @return a RangedSummarizedExperiment
 #' @export
 #' @examples
-#' binnedSummarizedExperiment = binSummarizedExperiment(smallBins,miniSE)
+#' binnedSummarizedExperiment = binSummarizedExperiment(smallSetOfSmallBins,smallerDeltaSE)
 binSummarizedExperiment = function(bins,se,checkDisjoint=FALSE)
 {
     if(checkDisjoint)

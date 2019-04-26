@@ -23,5 +23,5 @@ RangedSummarizedExperiment and produces a new RangedSummarizedExperiment
 with the bins as its rowRanges
 }
 \examples{
-binnedSummarizedExperiment = binSummarizedExperiment(smallBins,miniSE)
+binnedSummarizedExperiment = binSummarizedExperiment(smallSetOfSmallBins,smallerDeltaSE)
 }
