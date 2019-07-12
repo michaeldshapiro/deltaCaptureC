@@ -16,7 +16,7 @@ the viewpoint to be excluded from run total calculations}
 \item{colName}{defaults to 'delta'}
 }
 \value{
-a GRanges object giving the contiguous region and their
+a GRanges object giving the contiguous regions and their
 respective sums
 }
 \description{

@@ -31,12 +31,22 @@ downshiftDFtoMatrix = function(df)
 #' whose remaining columns are count data for experimental replicates
 #' @return The size factors for the columns of countsDF
 #' @export
+#' @importFrom DESeq2 estimateSizeFactorsForMatrix
+#' @importFrom SummarizedExperiment colData<-
+#' @importFrom SummarizedExperiment SummarizedExperiment colData assays assay rowRanges
+#' @importFrom SummarizedExperiment ranges seqnames start end
+#' @importFrom SummarizedExperiment assays<- rowRanges<- mcols<-
+#' @importFrom ggplot2 ggplot aes geom_col ggtitle scale_discrete_manual
+#' @importFrom ggplot2 element_text theme xlab
+#' @importFrom GenomicRanges GRanges seqnames isDisjoint findOverlaps
+#' @importFrom GenomicRanges width intersect mcols
+#' @importFrom IRanges IRanges from to width findOverlaps ranges
 #' @examples
 #' sf = getSizeFactorsDF(miniSEDF)
 getSizeFactorsDF = function(countsDF)
 {
     m = downshiftDFtoMatrix(countsDF)
-    sizeFactors = DESeq2::estimateSizeFactorsForMatrix(m)
+    sizeFactors = estimateSizeFactorsForMatrix(m)
     return(sizeFactors)
 }
 
@@ -54,7 +64,7 @@ getSizeFactorsDF = function(countsDF)
 #' miniSEWithSizeFactors = getSizeFactorsSE(miniSE)
 getSizeFactorsSE = function(se)
 {
-    SummarizedExperiment::colData(se)$sizeFactors = DESeq2::estimateSizeFactorsForMatrix(SummarizedExperiment::assays(se)[['counts']])
+    colData(se)$sizeFactors = estimateSizeFactorsForMatrix(assays(se)[['counts']])
     
     return(se)
 }
@@ -75,13 +85,13 @@ getSizeFactorsSE = function(se)
 #' miniSENormalized = getNormalizedCountsSE(miniSE)
 getNormalizedCountsSE = function(se)
 {
-    if(!'sizeFactors' %in% names(SummarizedExperiment::colData(se)))
+    if(!'sizeFactors' %in% names(colData(se)))
         se = getSizeFactorsSE(se)
     
-    SummarizedExperiment::assays(se)[['normalizedCounts']] = SummarizedExperiment::assays(se)[['counts']]
-    for(i in seq_len(ncol(SummarizedExperiment::assays(se)[['normalizedCounts']])))
-        SummarizedExperiment::assays(se)[['normalizedCounts']][,i] =
-            SummarizedExperiment::assays(se)[['normalizedCounts']][,i] / SummarizedExperiment::colData(se)$sizeFactors[i]
+    assays(se)[['normalizedCounts']] = assays(se)[['counts']]
+    for(i in seq_len(ncol(assays(se)[['normalizedCounts']])))
+        assays(se)[['normalizedCounts']][,i] =
+            assays(se)[['normalizedCounts']][,i] / colData(se)$sizeFactors[i]
     
     return(se)
 }
@@ -108,20 +118,20 @@ getNormalizedCountsSE = function(se)
 #' meanNormalizedCountSE = getMeanNormalizedCountsSE(miniSE)
 getMeanNormalizedCountsSE = function(countsSE,byTreatment='treatment')
 {
-    if(! 'normalizedCounts' %in% names(SummarizedExperiment::assays(countsSE)))
+    if(! 'normalizedCounts' %in% names(assays(countsSE)))
     {
         countsSE = getNormalizedCountsSE(countsSE)
     }
     
-    treatments = unique(SummarizedExperiment::colData(countsSE)[,byTreatment])
+    treatments = unique(colData(countsSE)[,byTreatment])
     rho = length(treatments)
-    assay = SummarizedExperiment::assays(countsSE)[['normalizedCounts']]
+    assay = assays(countsSE)[['normalizedCounts']]
     m = matrix(0,nrow=nrow(assay),ncol=rho)
     rownames(m) = rownames(assay)
     colnames(m) = treatments
     for(tr in treatments)
     {
-        idx = SummarizedExperiment::colData(countsSE)[,byTreatment] == tr
+        idx = colData(countsSE)[,byTreatment] == tr
         ## ######################################
         ## If there's only one column, it's the answer:
         if(sum(idx) == 1)
@@ -133,9 +143,9 @@ getMeanNormalizedCountsSE = function(countsSE,byTreatment='treatment')
     }
     colData = data.frame(treatment=treatments,
                          stringsAsFactors=FALSE)
-    meanNormalizedCountsSE = SummarizedExperiment::SummarizedExperiment(assays=list(mean=m),
-                                                                        colData=colData,
-                                                                        rowRanges=SummarizedExperiment::rowRanges(countsSE))
+    meanNormalizedCountsSE = SummarizedExperiment(assays=list(mean=m),
+                                                  colData=colData,
+                                                  rowRanges=rowRanges(countsSE))
     
     return(meanNormalizedCountsSE)
 }
@@ -157,19 +167,25 @@ getMeanNormalizedCountsSE = function(countsSE,byTreatment='treatment')
 #' aSmallDeltaSE = getDeltaSE(miniSE)
 getDeltaSE = function(countsSE,byTreatment='treatment')
 {
-    stopifnot(length(unique(SummarizedExperiment::colData(countsSE)[,byTreatment])) == 2)
+    numTreatments = length(unique(colData(countsSE)[,byTreatment]))
+    if(numTreatments != 2)
+    {
+        msg = paste('There should be 2 treatments. This SummarizedExperiment has',
+                    numTreatments)
+        stop(msg)
+    }
     
     meanNormalizedCountsSE = getMeanNormalizedCountsSE(countsSE,byTreatment)
-    meanCounts = SummarizedExperiment::assay(meanNormalizedCountsSE)
+    meanCounts = assay(meanNormalizedCountsSE)
     delta = matrix(meanCounts[,1] - meanCounts[,2],ncol=1)
     colData = data.frame(delta=sprintf('%s - %s',
-                                       as.character(SummarizedExperiment::colData(meanNormalizedCountsSE)$treatment[1]),
-                                       as.character(SummarizedExperiment::colData(meanNormalizedCountsSE)$treatment[2])),
+                                       as.character(colData(meanNormalizedCountsSE)$treatment[1]),
+                                       as.character(colData(meanNormalizedCountsSE)$treatment[2])),
                          stringsAsFactors=FALSE)
-    deltaSE = SummarizedExperiment::SummarizedExperiment(assay=list(delta=delta),
-                                                         colData=colData)
+    deltaSE = SummarizedExperiment(assay=list(delta=delta),
+                                   colData=colData)
     
-    SummarizedExperiment::rowRanges(deltaSE) = SummarizedExperiment::rowRanges(meanNormalizedCountsSE)
+    rowRanges(deltaSE) = rowRanges(meanNormalizedCountsSE)
     
     return(deltaSE)
 }
@@ -189,15 +205,16 @@ getDeltaSE = function(countsSE,byTreatment='treatment')
 #' and the fraction of each gr range meeting each bin
 #' @export
 #' @examples
-#' overlapWeights = getOverlapWeights(smallBins[1:20],GenomicRanges::GRanges(GenomicRanges::seqnames(miniDeltaSE),GenomicRanges::ranges(miniDeltaSE))[1:40])
+#' overlapWeights = getOverlapWeights(weightsExampleBins,weightsExampleGr)
 getOverlapWeights = function(bins,gr,checkDisjoint=FALSE)
 {
     if(checkDisjoint)
     {
-        stopifnot(GenomicRanges::isDisjoint(bins))
+        if(! isDisjoint(bins))
+            stop('Attempting to bin data into overlapping bins.')
     }
     
-    meets = IRanges::findOverlaps(bins,gr)
+    meets = findOverlaps(bins,gr)
     
     L = length(meets)
     meetsDF = data.frame(from=numeric(L),
@@ -207,14 +224,14 @@ getOverlapWeights = function(bins,gr,checkDisjoint=FALSE)
                          fraction=numeric(L),
                          stringsAsFactors=FALSE)
     
-    meetsDF$from = IRanges::from(meets)
-    meetsDF$to = IRanges::to(meets)
-    meetsDF$fromWidth = GenomicRanges::width(bins[IRanges::from(meets)])
-    meetsDF$toWidth = GenomicRanges::width(gr[IRanges::to(meets)])
-
+    meetsDF$from = from(meets)
+    meetsDF$to = to(meets)
+    meetsDF$fromWidth = width(bins[from(meets)])
+    meetsDF$toWidth = width(gr[to(meets)])
+    
     for(i in seq_len(L))
-        meetsDF$overlap[i] = IRanges::width(GenomicRanges::intersect(bins[meetsDF$from[i]],gr[meetsDF$to[i]]))
-
+        meetsDF$overlap[i] = width(intersect(bins[meetsDF$from[i]],gr[meetsDF$to[i]]))
+    
     
     meetsDF$fraction = meetsDF$overlap / meetsDF$toWidth
     meetsDF = meetsDF[,c('from','to','overlap','fraction')]
@@ -243,29 +260,31 @@ binSummarizedExperiment = function(bins,se,checkDisjoint=FALSE)
 {
     if(checkDisjoint)
     {
-        stopifnot(GenomicRanges::isDisjoint(bins))
+        if(! isDisjoint(bins))
+            stop('Attempting to bin data into overlapping bins.') 
     }
-    overlapsDF = getOverlapWeights(bins,SummarizedExperiment::rowRanges(se))
+    overlapsDF = getOverlapWeights(bins,rowRanges(se))
     
     binnedAssays = list()
     
     rows = length(bins)
-    cols = ncol(SummarizedExperiment::assays(se)[[1]])
+    cols = ncol(assays(se)[[1]])
     
-    for(n in names(SummarizedExperiment::assays(se)))
+    for(n in names(assays(se)))
     {
         m = matrix(0,nrow=rows,ncol=cols)
-        for(i in seq_len(nrow(overlapsDF)))
+        val = nrow(overlapsDF)
+        for(i in seq_len(val))
         {
             whichRow = overlapsDF$from[i]
             m[whichRow,] = m[whichRow,] +
-                overlapsDF$fraction[i] * SummarizedExperiment::assays(se)[[n]][overlapsDF$to[i],]
+                overlapsDF$fraction[i] * assays(se)[[n]][overlapsDF$to[i],]
         }
         binnedAssays[[n]] = m
     }
-    binnedSE = SummarizedExperiment::SummarizedExperiment(assays=binnedAssays,
-                                                          colData=SummarizedExperiment::colData(se),
-                                                          rowRanges=bins)
+    binnedSE = SummarizedExperiment(assays=binnedAssays,
+                                    colData=colData(se),
+                                    rowRanges=bins)
     return(binnedSE)
 }
 
@@ -287,21 +306,25 @@ rebinToMultiple = function(se,multiple,deleteShort=FALSE)
 {
     ## ######################################
     ## Bins should be constant width:
-    W = IRanges::width(SummarizedExperiment::ranges(se))
-    stopifnot(length(unique(W)) == 1)
+    W = width(ranges(se))
+    if(length(unique(W)) != 1)
+        stop('Bins should be of equal length.')
     W = W[1]
     
     ## ######################################
     ## Bins should be on one chromosome:
-    stopifnot(length(unique(SummarizedExperiment::seqnames(se))) == 1)
+    if(length(unique(seqnames(se))) != 1)
+        stop('Data should be binned into bins on a single chromosome.')
     
     ## ######################################
     ## Bins should be consecutive:
     n = length(se)
-    theJumps = SummarizedExperiment::start(se)[2:n] - SummarizedExperiment::end(se)[seq_len(n-1)]
+    theJumps = start(se)[2:n] - end(se)[seq_len(n-1)]
     theJumps = unique(theJumps)
-    stopifnot(length(theJumps) == 1 &
-              theJumps == 1)
+    if(length(theJumps) !=1 |
+       theJumps != 1)
+        stop('Data should be binned into bins which are consecutive.')
+
     
     if(deleteShort)
     {
@@ -314,24 +337,24 @@ rebinToMultiple = function(se,multiple,deleteShort=FALSE)
     N = length(startRangeIdx)
     endRangeIdx[N] = min(endRangeIdx[N],length(se))
     
-    gr = GenomicRanges::GRanges(seqnames=SummarizedExperiment::seqnames(se)[1],
-                                IRanges::IRanges(start=SummarizedExperiment::start(se)[startRangeIdx],
-                                                 end=SummarizedExperiment::end(se)[endRangeIdx]))
+    gr = GRanges(seqnames=seqnames(se)[1],
+                 IRanges(start=start(se)[startRangeIdx],
+                         end=end(se)[endRangeIdx]))
     
     binnedAssays = list()
     rows = N
-    cols = ncol(SummarizedExperiment::assay(se))
-    for(n in names(SummarizedExperiment::assays(se)))
+    cols = ncol(assay(se))
+    for(n in names(assays(se)))
     {
         m = matrix(0,nrow=rows,ncol=cols)
         for(i in seq_len(N))
-            m[i,] = sum(SummarizedExperiment::assays(se)[[n]][(startRangeIdx[i]:endRangeIdx[i]),])
+            m[i,] = sum(assays(se)[[n]][(startRangeIdx[i]:endRangeIdx[i]),])
         
         binnedAssays[[n]] = m
     }
-    binnedSE = SummarizedExperiment::SummarizedExperiment(assays=binnedAssays,
-                                                          colData=SummarizedExperiment::colData(se),
-                                                          rowRanges=gr)
+    binnedSE = SummarizedExperiment(assays=binnedAssays,
+                                    colData=colData(se),
+                                    rowRanges=gr)
     
     return(binnedSE)
 }
@@ -353,7 +376,7 @@ rebinToMultiple = function(se,multiple,deleteShort=FALSE)
 generatePermutation = function(gr,innerRegion)
 {
     ## ######################################    
-    meets = IRanges::findOverlaps(gr,innerRegion)
+    meets = findOverlaps(gr,innerRegion)
     meetsIdx = meets@from
     
     bigIdx = seq_len(length(gr))
@@ -362,7 +385,8 @@ generatePermutation = function(gr,innerRegion)
     permutation = bigIdx
     ## ######################################
     ## Permute the inner region:
-    for(i in seq_len(ceiling((n-m)/2)))
+    val = ceiling(n-m) / 2
+    for(i in seq_len(val))
     {
         if(stats::runif(1) < .5)
         {
@@ -398,7 +422,7 @@ generatePermutation = function(gr,innerRegion)
 #'     the viewpoint to be excluded from run total calculations
 #' @param colName defaults to 'delta'
 #'
-#' @return a GRanges object giving the contiguous region and their
+#' @return a GRanges object giving the contiguous regions and their
 #'     respective sums
 #' @export
 #' @examples
@@ -407,73 +431,90 @@ getRunTotals = function(se,innerRegion,colName='delta')
 {
     ## ######################################
     ## We turn the SummarizedExperiment into a GRanges object:
-    gr = SummarizedExperiment::rowRanges(se)
-    GenomicRanges::mcols(gr)[,colName] = SummarizedExperiment::assay(se)[,1]
+    gr = rowRanges(se)
+    mcols(gr)[,colName] = assay(se)[,1]
     
     
     
     ## ######################################
     ## Subset to miss the inner region:
-    idx = GenomicRanges::end(gr) < min(GenomicRanges::start(innerRegion))
+    idx = end(gr) < min(start(innerRegion))
     firstHalf = gr[idx]
-    idx = max(GenomicRanges::end(innerRegion)) < GenomicRanges::start(gr)
+    idx = max(end(innerRegion)) < start(gr)
     secondHalf = gr[idx]
     
-    getRunsAndTotals = function(gr,colName)
+
+    
+    return(c(.getRunsAndTotals(firstHalf,colName),
+             .getRunsAndTotals(secondHalf,colName)))
+}
+
+## ##########################################################################
+#' A helper function for getRunTotals
+#'
+#' This takes a GRanges object for binneed data and a column name
+#' designating where to find the relevant data in the mcols and
+#' returns a GRanges giving the consecutive runs of constant sign and
+#' their run totals.  It is not exported.
+#'
+#' @param gr a GRanges object whose mcols gives the relevant binned
+#' data
+#' @param colName This designates the column in mcols with the relevant
+#' data
+#' @return a GRanges object giving the contiguous regions and their
+#' respective sums.
+.getRunsAndTotals = function(gr,colName)
+{
+    ## ######################################
+    ## Pick up the first value, first sign, first total:
+    runTotals = c()
+    start = c()
+    end = c()
+    finger = 1
+    values = mcols(gr)[,colName]
+    currentValue = values[finger]
+    start = c(start,start(gr)[finger])
+    currentTotal = currentValue
+    if(currentValue >= 0)
+        currentSign = 1
+    else
+        currentSign = -1
+    
+    ## ######################################
+    ## Iterate through.  At each step we either update
+    ## the total or save the total, change the sign, and
+    ## start a new total:
+    while(finger < length(gr))
     {
-        ## ######################################
-        ## Pick up the first value, first sign, first total:
-        runTotals = c()
-        start = c()
-        end = c()
-        finger = 1
-        values = GenomicRanges::mcols(gr)[,colName]
+        
+        finger = finger + 1
         currentValue = values[finger]
-        start = c(start,GenomicRanges::start(gr)[finger])
-        currentTotal = currentValue
-        if(currentValue >= 0)
-            currentSign = 1
-        else
-            currentSign = -1
-        
-        ## ######################################
-        ## Iterate through.  At each step we either update
-        ## the total or save the total, change the sign, and
-        ## start a new total:
-        while(finger < length(gr))
+        if(currentValue * currentSign >= 0)
         {
-            
-            finger = finger + 1
-            currentValue = values[finger]
-            if(currentValue * currentSign >= 0)
-            {
-                currentTotal = currentTotal + currentValue
-            }
-            else
-            {
-                runTotals = c(runTotals,currentTotal)
-                end = c(end,GenomicRanges::end(gr)[finger-1])
-                start = c(start,GenomicRanges::start(gr)[finger])
-                currentSign = - currentSign
-                currentValue = values[finger]
-                currentTotal = currentValue
-            }
+            currentTotal = currentTotal + currentValue
         }
-        ## ######################################
-        ## Pick up the last running total:
-        runTotals = c(runTotals,currentTotal)
-        end = c(end,GenomicRanges::end(gr)[finger])
-        
-        chr = rep(unique(GenomicRanges::seqnames(gr)),length(start))
-        runTotals = GenomicRanges::GRanges(seqnames=chr,
-                                           IRanges::IRanges(start,end),
-                                           runTotals=runTotals)
-        
-        return(runTotals)
-        
+        else
+        {
+            runTotals = c(runTotals,currentTotal)
+            end = c(end,end(gr)[finger-1])
+            start = c(start,start(gr)[finger])
+            currentSign = - currentSign
+            currentValue = values[finger]
+            currentTotal = currentValue
+        }
     }
-    return(c(getRunsAndTotals(firstHalf,colName),
-             getRunsAndTotals(secondHalf,colName)))
+    ## ######################################
+    ## Pick up the last running total:
+    runTotals = c(runTotals,currentTotal)
+    end = c(end,end(gr)[finger])
+    
+    chr = rep(unique(seqnames(gr)),length(start))
+    runTotals = GRanges(seqnames=chr,
+                        IRanges(start,end),
+                        runTotals=runTotals)
+    
+    return(runTotals)
+    
 }
 
 ## ##########################################################################
@@ -497,24 +538,24 @@ getLopsidedness = function(se,viewpointRegion,colName='delta')
 {
     ## ######################################
     ## We'll want the midpoint of the viewpointRegion:
-    viewpointMid = floor((GenomicRanges::start(viewpointRegion) +
-                          GenomicRanges::end(viewpointRegion)) / 2)
+    viewpointMid = floor((start(viewpointRegion) +
+                          end(viewpointRegion)) / 2)
     
     ## ######################################
     ## We turn the SummarizedExperiment into a GRanges object:
-    gr = SummarizedExperiment::rowRanges(se)
-    GenomicRanges::mcols(gr)[,colName] = SummarizedExperiment::assay(se)[,1]
+    gr = rowRanges(se)
+    mcols(gr)[,colName] = assay(se)[,1]
     
     ## ######################################
     ## We want to restrict to the viewpointRegion:
-    window = IRanges::findOverlaps(viewpointRegion,gr)
-    windowBins = IRanges::to(window)
+    window = findOverlaps(viewpointRegion,gr)
+    windowBins = to(window)
     gr = gr[windowBins]
     
     ## ######################################
     ## We want to split this below and above the midpoint:
-    belowIdx = GenomicRanges::end(gr) < viewpointMid
-    aboveIdx = viewpointMid < GenomicRanges::start(gr)
+    belowIdx = end(gr) < viewpointMid
+    aboveIdx = viewpointMid < start(gr)
     below = gr[belowIdx]
     above = gr[aboveIdx]
     
@@ -525,12 +566,12 @@ getLopsidedness = function(se,viewpointRegion,colName='delta')
     b = length(below)
     a = length(above)
     use = min(b,a)
-
+    
     below = below[(b-use+1):b]
     above = above[seq_len(use)]
     
-    lopsidedness = abs(sum(GenomicRanges::mcols(below)[,colName]) -
-                       sum(GenomicRanges::mcols(above)[,colName]))
+    lopsidedness = abs(sum(mcols(below)[,colName]) -
+                       sum(mcols(above)[,colName]))
     
     return(lopsidedness)
 }
@@ -552,8 +593,8 @@ getRunAndLopsidednessStatistics =
 {
     ## ######################################
     ## We'll want the midpoint of the viewpointRegion:
-    viewpointMid = floor((GenomicRanges::start(viewpointRegion) +
-                          GenomicRanges::end(viewpointRegion)) / 2)
+    viewpointMid = floor((start(viewpointRegion) +
+                          end(viewpointRegion)) / 2)
     
     scrambledRuns = lapply(scrambledDeltas,function(x)
         return(getRunTotals(x,viewpointRegion)))
@@ -582,7 +623,8 @@ getRunStatisticsDist = function(runTotalsList)
 {
     m = matrix(0,ncol=3,nrow=length(runTotalsList))
     colnames(m) = c('min','max','abs')
-    for(i in seq_len(length(runTotalsList)))
+    val = length(runTotalsList)
+    for(i in seq_len(val))
         m[i,] = getRunStatistics(runTotalsList[[i]])
     
     return(m)
@@ -600,7 +642,7 @@ getRunStatisticsDist = function(runTotalsList)
 #'     max for the run totals. 
 getRunStatistics = function(runTotals)
 {
-    totals = GenomicRanges::mcols(runTotals)[,'runTotals']
+    totals = mcols(runTotals)[,'runTotals']
     return(c('min'=min(totals),
              'max'=max(totals),
              'abs'=max(abs(totals))))
@@ -684,108 +726,108 @@ getSignificantRegions = function(deltaSE,
 {
     ## ##########################################################################
     ## Trim to region of interest:
-    chr = as.character(GenomicRanges::seqnames(regionOfInterest)[1])
-    fromHere = min(GenomicRanges::start(regionOfInterest))
-    toHere = max(GenomicRanges::end(regionOfInterest))
-    idx = (as.character(SummarizedExperiment::seqnames(deltaSE)) == chr &
-           fromHere <= SummarizedExperiment::start(deltaSE) &
-           SummarizedExperiment::end(deltaSE) <= toHere)
+    chr = as.character(seqnames(regionOfInterest)[1])
+    fromHere = min(start(regionOfInterest))
+    toHere = max(end(regionOfInterest))
+    idx = (as.character(seqnames(deltaSE)) == chr &
+           fromHere <= start(deltaSE) &
+           end(deltaSE) <= toHere)
     deltaSE = deltaSE[idx,]
-
+    
     ## ##########################################################################
     ## Bin to small bin size.  These give the start and end of each bin:
     start = seq(from=fromHere,to=toHere,by=smallBinSize)
     end = start - 1 + smallBinSize
-    gr = GenomicRanges::GRanges(seqnames=chr,
-                                IRanges::IRanges(start,end))
-
+    gr = GRanges(seqnames=chr,
+                 IRanges(start,end))
+    
     
     binnedDeltaSE = binSummarizedExperiment(gr,deltaSE)
-
+    
     ## ##########################################################################
     ## Bin to big bin size:
     lambda = bigBinSize / smallBinSize
     bigBinDeltaSE = rebinToMultiple(binnedDeltaSE,lambda)
-
+    
     ## ##########################################################################
     ## Get real runs:
     realRunTotals = getRunTotals(bigBinDeltaSE,viewpointRegion)
-    mid = floor((GenomicRanges::start(viewpointRegion) +
-                 GenomicRanges::end(viewpointRegion)) / 2)
+    mid = floor((start(viewpointRegion) +
+                 end(viewpointRegion)) / 2)
     realLopsidedness = getLopsidedness(bigBinDeltaSE,viewpointRegion,mid)
-
+    
     scrambledDeltas = list()
     scrambledRuns = list()
-    rowRanges=SummarizedExperiment::rowRanges(binnedDeltaSE)
-    colData=SummarizedExperiment::colData(binnedDeltaSE)
+    rowRanges=rowRanges(binnedDeltaSE)
+    colData=colData(binnedDeltaSE)
     for(j in seq_len(numPermutations))
     {
         permutation = generatePermutation(binnedDeltaSE,viewpointRegion)
-        m = matrix(SummarizedExperiment::assay(binnedDeltaSE)[permutation,],ncol=1)
+        m = matrix(assay(binnedDeltaSE)[permutation,],ncol=1)
         
-        scrambledDeltaSE = SummarizedExperiment::SummarizedExperiment(colData=colData,
-                                                                      assays=list('delta'=m),
-                                                                      rowRanges=rowRanges)
+        scrambledDeltaSE = SummarizedExperiment(colData=colData,
+                                                assays=list('delta'=m),
+                                                rowRanges=rowRanges)
         ## ##########################################################################
         scrambledDeltas[[j]] = rebinToMultiple(scrambledDeltaSE,lambda)
         scrambledRuns[[j]] = getRunTotals(scrambledDeltaSE,viewpointRegion)
     }
-
+    
     ## ##########################################################################
     ## Get run stats:
     stats = getRunAndLopsidednessStatistics(scrambledDeltas,viewpointRegion,mid)
     runStats = getRunStatisticsDist(scrambledRuns)
-
+    
     ## ##########################################################################
     ## Determine significant levels:
     cutoffs = getPValueCutoff(stats,pValue)
-
+    
     ## ##########################################################################
     ## Extract the results:
-    answers = SummarizedExperiment::rowRanges(bigBinDeltaSE)
-
-    mcols =
-        data.frame(delta=SummarizedExperiment::assay(bigBinDeltaSE),
-                   isViewpoint=FALSE,
-                   lopsidednessIsSignificant=FALSE,
-                   isSignificantByMin=FALSE,
-                   isSignificantByMax=FALSE,
-                   isSignificantByAbs=FALSE,
-                   stringsAsFactors=FALSE)
-
-    meets = IRanges::findOverlaps(answers,viewpointRegion)
-    mcols$isViewpoint[IRanges::from(meets)] = TRUE
-
+    answers = rowRanges(bigBinDeltaSE)
+    
+    mcols = data.frame(delta=assay(bigBinDeltaSE),
+                       isViewpoint=FALSE,
+                       lopsidednessIsSignificant=FALSE,
+                       isSignificantByMin=FALSE,
+                       isSignificantByMax=FALSE,
+                       isSignificantByAbs=FALSE,
+                       stringsAsFactors=FALSE)
+    
+    meets = findOverlaps(answers,viewpointRegion)
+    mcols$isViewpoint[from(meets)] = TRUE
+    
     ## ##########################################################################
     ## Is lopsidedness significant?
     if(realLopsidedness > cutoffs['lopsidedness'])
         mcols$lopsidednessIsSignificant[mcols$isViewpoint] = TRUE
-
+    
     ## ##########################################################################
     ## What about runs?
-    for(i in seq_len(length(realRunTotals)))
+    val = length(realRunTotals)
+    for(i in seq_len(val))
     {
         if(realRunTotals$runTotals[i] < cutoffs['min'])
         {
-            meets = IRanges::findOverlaps(answers,realRunTotals[i])
-            mcols$isSignificantByMin[IRanges::from(meets)] = TRUE
+            meets = findOverlaps(answers,realRunTotals[i])
+            mcols$isSignificantByMin[from(meets)] = TRUE
         }
-
+        
         if(realRunTotals$runTotals[i] > cutoffs['max'])
         {
-            meets = IRanges::findOverlaps(answers,realRunTotals[i])
-            mcols$isSignificantByMax[IRanges::from(meets)] = TRUE
+            meets = findOverlaps(answers,realRunTotals[i])
+            mcols$isSignificantByMax[from(meets)] = TRUE
         }
-
+        
         
         if(abs(realRunTotals$runTotals[i]) > cutoffs['abs'])
         {
-            meets = IRanges::findOverlaps(answers,realRunTotals[i])
-            mcols$isSignificantByAbs[IRanges::from(meets)] = TRUE
+            meets = findOverlaps(answers,realRunTotals[i])
+            mcols$isSignificantByAbs[from(meets)] = TRUE
         }
     }
-    GenomicRanges::mcols(answers) = mcols
-
+    mcols(answers) = mcols
+    
     return(answers)
 }
 
@@ -809,39 +851,40 @@ getSignificantRegions = function(deltaSE,
 #' @export
 #' @examples
 #' plotOfSignificantRegions = plotSignificantRegions(significantRegions)
-plotSignificantRegions =
+    plotSignificantRegions =
     function(significantRegions,significanceType='abs',title='Significant Regions',xLabel='viewpoint',legend=TRUE)
 {
     sigNames = c(min="isSignificantByMin",
                  max="isSignificantByMax",
                  abs="isSignificantByAbs")
-
+    
     df = data.frame(significantRegions,
                     stringsAsFactors=FALSE)
-
+    
     df$significance = 'not significant'
     df$significance[df$lopsidednessIsSignificant] =
         'lopsidedness is significant'
     df$significance[df[,sigNames[significanceType]]] = 'significant'
-
+    
     df$ctr = (df$start + df$end) / 2
-
+    
     breaks = c('not significant','lopsidedness is significant','significant')
     values = c('#F97465','#01BB34','#6998FF')
     names(values) = breaks
-
-    g = ggplot2::ggplot(df,ggplot2::aes(x=ctr,y=delta,fill=significance)) +
-        ggplot2::geom_col() +
-        ggplot2::ggtitle(title) +
-        ggplot2::scale_discrete_manual(breaks=breaks,
-                                       values=values,
-                                       aesthetics=c('color','fill')) +
-        ggplot2::theme(axis.text=ggplot2::element_text(size=18),
-                       axis.title=ggplot2::element_text(size=16,face="bold")) +
-        ggplot2::xlab(xLabel)
+    
+    g = ggplot(df,aes(x=ctr,y=delta,fill=significance)) +
+        geom_col() +
+        ggtitle(title) +
+        scale_discrete_manual(breaks=breaks,
+                              values=values,
+                              aesthetics=c('color','fill')) +
+        theme(axis.text=element_text(size=18),
+              axis.title=element_text(size=16,face="bold")) +
+        xlab(xLabel)
     
     if(! legend)
-        g = g + ggplot2::theme(legend.position='none')
-
+        g = g + theme(legend.position='none')
+    
     return(g)
 }
+

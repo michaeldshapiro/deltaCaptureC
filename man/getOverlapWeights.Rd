@@ -24,5 +24,5 @@ data to be pro-rated over those bins and returns a data frame giving the overlap
 and the fractions for pro-rating scores
 }
 \examples{
-overlapWeights = getOverlapWeights(smallBins[1:20],GenomicRanges::GRanges(GenomicRanges::seqnames(miniDeltaSE),GenomicRanges::ranges(miniDeltaSE))[1:40])
+overlapWeights = getOverlapWeights(weightsExampleBins,weightsExampleGr)
 }
