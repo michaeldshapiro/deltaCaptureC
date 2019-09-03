@@ -752,9 +752,7 @@ getSignificantRegions = function(deltaSE,
     ## ##########################################################################
     ## Get real runs:
     realRunTotals = getRunTotals(bigBinDeltaSE,viewpointRegion)
-    mid = floor((start(viewpointRegion) +
-                 end(viewpointRegion)) / 2)
-    realLopsidedness = getLopsidedness(bigBinDeltaSE,viewpointRegion,mid)
+    realLopsidedness = getLopsidedness(bigBinDeltaSE,viewpointRegion)
     
     scrambledDeltas = list()
     scrambledRuns = list()

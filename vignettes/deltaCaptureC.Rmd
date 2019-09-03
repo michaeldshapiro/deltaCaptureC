@@ -15,6 +15,7 @@ knitr::opts_chunk$set(
   comment = "#>"
 )
 ```
+# deltaCaptureC
 
 ## Introduction
 
@@ -28,13 +29,13 @@ the following:
 |chr2 |  13505797|  13506141|         2|
 |chr2 |  13506144|  13506556|         2|
 |chr2 |  13654334|  13655871|        14|
-| ... |   ...    |   ...    |    ...|
+| ... |   ...    |   ...    |       ...|
 |chr2 | 105656443| 105656693|       241|
 |chr2 | 105656696| 105659412|       263|
 |chr2 | 105659415| 105660479|       126|
 |chr2 | 105662321| 105663389|       275|
 |chr2 | 105663392| 105663974|       615|
-| ... |   ...    |   ...    |    ...|
+| ... |   ...    |   ...    |       ...|
 |chr2 | 173656857| 173657083|         2|
 |chr2 | 173694707| 173695349|         2|
 |chr2 | 173698231| 173698911|         4|
@@ -66,21 +67,21 @@ Consider 3C data for the same viewpoint for two replicates each for two
 different cell types.
 
 
- |chr  |     start|       end| EScells_1| EScells_2| Neu_1| Neu_2|
--|:----|---------:|---------:|---------:|---------:|-----:|-----:|
- |chr2 |   6226506|   6226673|         0|         2|     0|     0|
- |chr2 |   6235906|   6237082|         0|         0|     0|     1|
- |chr2 |   6270043|   6270850|         1|         0|     0|     0|
- | ... |   ...    |   ...    |    ...|   ...|   ...|   ...|
- |chr2 | 105656443| 105656693|       241|       120|   184|    82|
- |chr2 | 105656696| 105659412|       263|       215|   365|   225|
- |chr2 | 105659415| 105660479|       126|       182|   220|   160|
- |chr2 | 105662321| 105663389|       275|        90|   171|   133|
- |chr2 | 105663392| 105663974|       615|       166|   327|   301|
-  | ... |   ...    |   ...    |    ...|   ...|   ...|   ...|
- |chr2 | 179455636| 179455885|         0|         0|     0|     1|
- |chr2 | 179473020| 179473517|         0|         0|     0|     3|
- |chr2 | 179473520| 179473584|         0|         0|     0|     3|
+|chr  |     start|       end| EScells_1| EScells_2| Neu_1| Neu_2|
+|:----|---------:|---------:|---------:|---------:|-----:|-----:|
+|chr2 |   6226506|   6226673|         0|         2|     0|     0|
+|chr2 |   6235906|   6237082|         0|         0|     0|     1|
+|chr2 |   6270043|   6270850|         1|         0|     0|     0|
+| ... |   ...    |   ...    |       ...|       ...|   ...|   ...|
+|chr2 | 105656443| 105656693|       241|       120|   184|    82|
+|chr2 | 105656696| 105659412|       263|       215|   365|   225|
+|chr2 | 105659415| 105660479|       126|       182|   220|   160|
+|chr2 | 105662321| 105663389|       275|        90|   171|   133|
+|chr2 | 105663392| 105663974|       615|       166|   327|   301|
+| ... |   ...    |   ...    |       ...|       ...|   ...|   ...|
+|chr2 | 179455636| 179455885|         0|         0|     0|     1|
+|chr2 | 179473020| 179473517|         0|         0|     0|     3|
+|chr2 | 179473520| 179473584|         0|         0|     0|     3|
 
 We wish to discover regions where there is a statisitcally significant
 change in the interaction levels between the two cell types.
@@ -103,6 +104,8 @@ miniSE in order to demonstrate the process of extracting the delta
 mean normalized value miniDeltaSE.  
 
 ```
+{r}
+library(deltaCaptureC)
 miniDeltaSE = getDeltaSE(miniSE)
 ```
 
@@ -158,18 +161,19 @@ these distributions.
 
 ## Invoking the algorithm and plotting the results
 
-```
+```{r message=FALSE}
+library(deltaCaptureC)
 significantRegions = getSignificantRegions(deltaSE,
                                            regionOfInterest,
                                            viewpointRegion,
                                            smallBinSize,
                                            bigBinSize,
                                            numPermutations,
-                                           pValue,
-                                           setSeed)
+                                           pValue)
 ```
 which are then ploted using
-```
+```{r message=FALSE}
+library(deltaCaptureC)
 significantRegionsPlot = plotSignificantRegions(significantRegions,
                                                 significanceType,
                                                 plotTitle)
@@ -182,6 +186,82 @@ This gives the following result:
       ggplot2::theme(axis.text=ggplot2::element_text(size=8))
        print(significantRegionsPlot)
 ```
+
+## Under the hood
+
+### Normalization
+
+We have given an example above of the use of getDeltaSE(), converting
+miniSE into miniDeltaSE.  This is a multi-step process, first
+normalizing the columns of miniSE, then averaging the values for each
+of the two treatments and finally taking their difference.  For
+normalization, we relied on DESeq2::estimateSizeFactorsForMatrix(). 
+```{r message=FALSE}
+library(SummarizedExperiment)
+library(deltaCaptureC)
+se = miniSE
+counts = assays(se)[['counts']]
+sizeFactors = DESeq2::estimateSizeFactorsForMatrix(counts)
+colData(se)$sizeFactors = sizeFactors
+assays(se)[['normalizedCounts']] = counts
+for(i in seq_len(ncol(assays(se)[['normalizedCounts']])))
+{
+	assays(se)[['normalizedCounts']][,i] =
+            assays(se)[['normalizedCounts']][,i] /
+	    colData(se)$sizeFactors[i]
+}
+```
+Depending on your application, you may wish to use your own method of
+normalization.
+
+The delta SummarizedExperiment is then the difference between the mean
+expressions for the two treatments.
+```{r message=FALSE}
+library(SummarizedExperiment)
+library(deltaCaptureC)
+meanNormalizedCountsSE = getMeanNormalizedCountsSE(miniSE)
+meanCounts = assay(meanNormalizedCountsSE)
+delta = matrix(meanCounts[,1] - meanCounts[,2],ncol=1)
+colData = data.frame(delta=sprintf('%s - %s',
+                                    as.character(colData(meanNormalizedCountsSE)$treatment[1]),
+                                    as.character(colData(meanNormalizedCountsSE)$treatment[2])),
+                                    stringsAsFactors=FALSE)
+deltaSE = SummarizedExperiment(assay=list(delta=delta),
+                                          colData=colData)
+rowRanges(deltaSE) = rowRanges(meanNormalizedCountsSE)
+```
+
+###
+Binning
+
+Binning is the rate-limiting step as can be seen from the binning of a
+small Summarized experiment into a small set of bins:
+```{r message=FALSE}
+library(deltaCaptureC)
+print(length(smallSetOfSmallBins))
+print(length(smallerDeltaSE))
+tictoc::tic('binning into small bins')
+binnedSummarizedExperiment = binSummarizedExperiment(smallSetOfSmallBins,smallerDeltaSE)
+tictoc::toc()
+```
+The algorithm depends on the permutation of small bins and the
+rebinning of the resulting permuted data into large bins for
+comparison to the actual data binned into the same larger bins.  The
+binning into smaller bins only happens once, while the rebinning into
+larger bins is carried out for each permutation.  Consequently, we
+require the larger bin size to be an integer multiple of the smaller
+and this rebinning is much faster.
+```{r message=FALSE}
+library(deltaCaptureC)
+tictoc::tic('rebinning to larger bin size')
+rebinnedSummarizedExperiment =
+      rebinToMultiple(binnedSummarizedExperiment,10)
+tictoc::toc()
+```
+
+
+
+
 
 
 
