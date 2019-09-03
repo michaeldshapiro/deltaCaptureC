@@ -773,7 +773,7 @@ getSignificantRegions = function(deltaSE,
     
     ## ##########################################################################
     ## Get run stats:
-    stats = getRunAndLopsidednessStatistics(scrambledDeltas,viewpointRegion,mid)
+    stats = getRunAndLopsidednessStatistics(scrambledDeltas,viewpointRegion)
     runStats = getRunStatisticsDist(scrambledRuns)
     
     ## ##########################################################################
