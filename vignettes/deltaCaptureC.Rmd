@@ -161,8 +161,7 @@ these distributions.
 
 ## Invoking the algorithm and plotting the results
 
-```{r message=FALSE}
-library(deltaCaptureC)
+```
 significantRegions = getSignificantRegions(deltaSE,
                                            regionOfInterest,
                                            viewpointRegion,
