@@ -1,6 +1,6 @@
 Package: deltaCaptureC
 Title: This Package Discovers Meso-scale Chromatin Remodeling from 3C Data
-Version: 1.1.0
+Version: 1.2.0
 Authors@R: 
     person(given = "Michael",
            family = "Shapiro",
