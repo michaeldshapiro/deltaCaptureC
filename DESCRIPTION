@@ -5,7 +5,7 @@ Authors@R:
     person(given = "Michael",
            family = "Shapiro",
            role = c("aut", "cre"),
-           email = "sifka@earthlink.net",
+           email = "michael.shapiro@crick.ac.uk",
            comment = c(ORCID = "0000-0002-2769-9320"))
 Description: This package discovers meso-scale chromatin remodelling from 3C data.  3C data is local in nature.  It givens interaction counts between restriction enzyme digestion fragments and a preferred 'viewpoint' region.  By binning this data and using permutation testing, this package can test whether there are statistically significant changes in the interaction counts between the data from two cell types or two treatments.
 License: MIT + file LICENSE
