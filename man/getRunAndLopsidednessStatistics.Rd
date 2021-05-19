@@ -4,8 +4,11 @@
 \alias{getRunAndLopsidednessStatistics}
 \title{Get the distribution of run and lopsidedness statistics}
 \usage{
-getRunAndLopsidednessStatistics(scrambledDeltas, viewpointRegion,
-  colName = "delta")
+getRunAndLopsidednessStatistics(
+  scrambledDeltas,
+  viewpointRegion,
+  colName = "delta"
+)
 }
 \arguments{
 \item{scrambledDeltas}{a list of rebinned (i.e., to large bin size)

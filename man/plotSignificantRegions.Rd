@@ -4,8 +4,13 @@
 \alias{plotSignificantRegions}
 \title{This produces a plot of the region of interest showing regions of significance.}
 \usage{
-plotSignificantRegions(significantRegions, significanceType = "abs",
-  title = "Significant Regions", xLabel = "viewpoint", legend = TRUE)
+plotSignificantRegions(
+  significantRegions,
+  significanceType = "abs",
+  title = "Significant Regions",
+  xLabel = "viewpoint",
+  legend = TRUE
+)
 }
 \arguments{
 \item{significantRegions}{a GRanges object as produced by

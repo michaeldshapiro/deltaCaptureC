@@ -1,6 +1,6 @@
 Package: deltaCaptureC
 Title: This Package Discovers Meso-scale Chromatin Remodeling from 3C Data
-Version: 1.4.1
+Version: 1.4.2
 Authors@R: 
     person(given = "Michael",
            family = "Shapiro",
@@ -17,9 +17,10 @@ Imports:
 	GenomicRanges,
 	SummarizedExperiment,
 	ggplot2,
-	DESeq2
+	DESeq2,
+	tictoc
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 6.1.1
+RoxygenNote: 7.1.1
 Suggests: 
     knitr,
     rmarkdown
@@ -27,5 +28,3 @@ VignetteBuilder: knitr
 biocViews:
 	BiologicalQuestion,
 	StatisticalMethod
-	
-	

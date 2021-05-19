@@ -1,0 +1,24 @@
+
+
+bibentry(bibtype='article',
+         author = c(person('Ioanna','Pavlaki'),
+                    person('Michael','Shapiro'),
+                    person('Giuseppina','Pisignano'),
+                    person('Jelena','Telenius'),
+                    person('Silivia','Munoz Descalzo'),
+                    person('Robert J','Williams'),
+                    person('Jim Raymond','Hughes'),
+                    person('Keith W','Vance')),
+	title = 'Chromatin interaction maps identify Wnt responsive cis-regulatory elements coordinating Paupar-Pax6 expression in neuronal cells',
+	year = '2021',
+	doi = '10.1101/2021.05.18.442939',
+	URL = 'https://www.biorxiv.org/content/early/2021/05/18/2021.05.18.442939',
+	eprint = 'https://www.biorxiv.org/content/early/2021/05/18/2021.05.18.442939.full.pdf',
+	journal = 'bioRxiv'
+        )
+
+textVersion = paste0('Ioanna Pavlaki, Michael Shapiro, Giuseppina Pisignano, Jelena Telenius, ',
+                     'Silvia Munoz Descalzo, Robert J Williams, Jim Raymond Hughes, ',
+                     'Keith W Vance (2021) ',
+                     'Chromatin interaction maps identify Wnt responsive cis-regulatory elements coordinating Paupar-Pax6 expression in neuronal cell ',
+                     'doi 10.1101/2021.05.18.442939')

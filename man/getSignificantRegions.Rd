@@ -4,8 +4,15 @@
 \alias{getSignificantRegions}
 \title{Get ths significant regions from delta data}
 \usage{
-getSignificantRegions(deltaSE, regionOfInterest, viewpointRegion,
-  smallBinSize, bigBinSize, numPermutations = 1000, pValue = 0.05)
+getSignificantRegions(
+  deltaSE,
+  regionOfInterest,
+  viewpointRegion,
+  smallBinSize,
+  bigBinSize,
+  numPermutations = 1000,
+  pValue = 0.05
+)
 }
 \arguments{
 \item{deltaSE}{a ranged summarized experiment with a one-column
